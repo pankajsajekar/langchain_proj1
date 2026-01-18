@@ -1,4 +1,4 @@
-# handler/llm_service.py
+# handler/llm_manager.py
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -19,27 +19,19 @@ class SimpleLLMHandler:
             streaming=False,
             verbose=True
         )
-        self.chat_history = []
 
-    async def get_response(self, user_message: str) -> str:
+    async def get_response(self, user_message: str, memory_manager=None) -> str:
         """Get response from LLM with chat history"""
         try:
-            # Add system message if first interaction
-            if not self.chat_history:
-                self.chat_history.append(
-                    SystemMessage(content="You are a helpful AI assistant. Provide clear and concise answers.")
-                )
-            
-            # Add user message
-            self.chat_history.append(HumanMessage(content=user_message))
+            # Build context with system prompt and chat history
+            context = [SystemMessage(content="You are a helpful AI assistant. Provide clear and concise answers.") ] + memory_manager.get_memory().chat_memory.messages + [HumanMessage(content=f"User Asked this : {user_message}")] if memory_manager else []
             
             # Get response asynchronously using ainvoke (latest async method)
-            response = await self.llm.ainvoke(self.chat_history)
+            response = await self.llm.ainvoke(context)
             
-            # Add AI response to history
-            self.chat_history.append(AIMessage(content=response.content))
+            memory_manager.add_message(user_message, response.content) if memory_manager else None
             
-            return response.content, response.usage_metadata['total_tokens']
+            return response.content, response.usage_metadata['total_tokens'] or 0
             
         except Exception as e:
             return "Sorry, I couldn't process your request."
@@ -62,12 +54,3 @@ class SimpleLLMHandler:
             
         except Exception as e:
             yield "Sorry, I couldn't stream the response."
-
-
-    def clear_history(self):
-        """Clear chat history"""
-        self.chat_history = []
-
-    def get_history(self) -> list:
-        """Get chat history"""
-        return self.chat_history

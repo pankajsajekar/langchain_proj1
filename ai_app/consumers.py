@@ -6,18 +6,12 @@ from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from django.contrib.auth.models import User
 from urllib.parse import parse_qs
 from channels.db import database_sync_to_async
-from ai_app.models import AIChats
-from ai_app.handler.llm_service import SimpleLLMHandler
+from ai_app.src.handler.llm_manager import SimpleLLMHandler
 from django.conf import settings
+from ai_app.src.handler.memory_manager import MemoryManager
 
 
 openai_api_key = getattr(settings, 'OPENAI_API_KEY', None)
-
-@database_sync_to_async
-def save_chat_message(user, message, response, tokens_used=0):
-    chat_message = AIChats(user=user, message=message, response=response, tokens_used=tokens_used)
-    chat_message.save()
-    return chat_message
 
 
 def validate_jwt_token(token_string):
@@ -50,6 +44,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Initialize instance variables
         self.user = None
         self.jwt_token = None
+        self.memory_manager = None
 
         # Initialize LLM handler (adjust API key source as needed)
         if openai_api_key:
@@ -73,7 +68,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         if not self.user:
             await self.close(code=4001)  # Unauthorized
-            return
+            return 
+        
+        self.memory_manager = MemoryManager(user=self.user)
+        await self.memory_manager.load_history_from_db()
 
         print(f"User authenticated: {self.user.username}")
 
@@ -91,8 +89,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"WebSocket disconnected with code: {close_code}")
 
         # Clear memory on disconnect
-        if hasattr(self, 'llm_handler'):
-            self.llm_handler.clear_history()
+        if self.memory_manager:
+            self.memory_manager.clear_memory()
 
 
     async def receive(self, text_data):
@@ -108,7 +106,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             if self.llm_handler:
                 # Get LLM response
-                response, tokens_used = await self.llm_handler.get_response(message)
+                response, tokens_used = await self.llm_handler.get_response(message, self.memory_manager)
                 print(f"LLM response: {response}")
 
                 await self.send(text_data=json.dumps({
@@ -130,7 +128,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
 
                 # Save chat message
-                # await save_chat_message(self.user, message, response, tokens_used)
+                await self.memory_manager.save_to_db(message, response, tokens_used)
 
             else:
                 await self.send(text_data=json.dumps({
