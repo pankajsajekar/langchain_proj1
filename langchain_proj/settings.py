@@ -91,10 +91,15 @@ WSGI_APPLICATION = 'langchain_proj.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': os.getenv('DATABASE_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': os.getenv('DATABASE_NAME', default='langchain_db'),
+        'USER': os.getenv('DATABASE_USER', default='postgres'),
+        'PASSWORD': os.getenv('DATABASE_PASSWORD', default='admin'),
+        'HOST': os.getenv('DATABASE_HOST', default='localhost'),
+        'PORT': os.getenv('DATABASE_PORT', default='5432'),
     }
 }
 

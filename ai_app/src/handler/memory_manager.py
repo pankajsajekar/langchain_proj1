@@ -1,4 +1,4 @@
-# from langchain.memory import ConversationBufferWindowMemory
+# src/handler/memory_manager.py
 from langchain_classic.memory import ConversationBufferMemory
 from langchain_core.messages import HumanMessage, AIMessage
 from django.contrib.auth.models import User
