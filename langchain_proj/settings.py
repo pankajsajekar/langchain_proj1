@@ -149,3 +149,12 @@ CHANNEL_LAYERS = {
 
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+
+REDIS_HOST = os.getenv('REDIS_HOST', default='localhost')
+REDIS_PORT = os.getenv('REDIS_PORT', default='6379')
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', default='')
+REDIS_DB = os.getenv('REDIS_DB', default='0')
+
+CELERY_BROKER_URL = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+CELERY_RESULT_BACKEND = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
